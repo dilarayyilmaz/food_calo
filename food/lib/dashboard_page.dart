@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
+import 'package:shared_preferences/shared_preferences.dart'; 
 
 import 'cal_predictor.dart';
 import 'water_tracker_page.dart';
 import 'weight_tracker_page.dart';
-import 'recipe_page.dart'; 
+import 'recipe_page.dart';
+import 'settings_page.dart'; 
+import 'manual_entry_page.dart'; 
 
-// Veri Modeli
 class FoodItem {
   final String name;
   final int calories;
@@ -34,7 +36,6 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
-
   int _calorieGoal = 2200;
   double _carbsGoal = 250, _proteinGoal = 120, _fatGoal = 70;
   DateTime _selectedDate = DateTime.now();
@@ -45,9 +46,35 @@ class _DashboardPageState extends State<DashboardPage> {
     'Snacks': [],
   };
 
+  @override
+  void initState() {
+    super.initState();
+    _loadGoals();
+  }
+
+  Future<void> _loadGoals() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _calorieGoal = prefs.getInt('calorieGoal') ?? _calorieGoal;
+      _carbsGoal = (_calorieGoal * 0.50) / 4;
+      _proteinGoal = (_calorieGoal * 0.20) / 4;
+      _fatGoal = (_calorieGoal * 0.30) / 9;
+    });
+  }
+
+  Future<void> _navigateToSettings() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (context) => const SettingsPage()),
+    );
+    if (result == true) {
+      _loadGoals();
+    }
+  }
+
   void _onItemTapped(int index) {
     if (index == 1) {
-      _addFoodToMeal('Snacks'); 
+      _addFoodToMeal('Snacks');
     } else {
       setState(() {
         _selectedIndex = index;
@@ -56,10 +83,45 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _addFoodToMeal(String mealTitle) async {
-    final result = await Navigator.push<Map<String, dynamic>>(
-      context,
-      MaterialPageRoute(builder: (context) => CalPredictor()),
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Wrap(
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.camera_alt, color: Color(0xFFF27A23)),
+                title: const Text('Fotoğrafla Ekle'),
+                onTap: () async {
+                  final photoResult =
+                      await Navigator.push<Map<String, dynamic>>(
+                        context,
+                        MaterialPageRoute(builder: (context) => CalPredictor()),
+                      );
+                  Navigator.pop(context, photoResult);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.edit, color: Color(0xFFF27A23)),
+                title: const Text('Manuel Ekle'),
+                onTap: () async {
+                  final manualResult =
+                      await Navigator.push<Map<String, dynamic>>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ManualEntryPage(),
+                        ),
+                      );
+                  Navigator.pop(context, manualResult);
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
+
     if (result != null) {
       final newFood = FoodItem(
         name: result['food_name'] ?? 'Unknown',
@@ -68,10 +130,11 @@ class _DashboardPageState extends State<DashboardPage> {
         protein: (result['protein'] as num?)?.toDouble() ?? 0.0,
         fat: (result['fat'] as num?)?.toDouble() ?? 0.0,
       );
+
       setState(() => _meals[mealTitle]?.add(newFood));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${newFood.name} eklendi!'),
+          content: Text('${newFood.name} öğününe eklendi!'),
           backgroundColor: Colors.green,
         ),
       );
@@ -80,9 +143,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Gösterilecek sayfaların listesi
     final List<Widget> pages = [
-      // Index 0: Ana Sayfa İçeriği
       DashboardContent(
         calorieGoal: _calorieGoal,
         meals: _meals,
@@ -93,10 +154,10 @@ class _DashboardPageState extends State<DashboardPage> {
         onDateChange: (newDate) => setState(() => _selectedDate = newDate),
         onAddFood: _addFoodToMeal,
       ),
-      const SizedBox.shrink(), // Index 1 (Kalori) için yer tutucu
-      const WaterTrackerPage(), // Index 2: Su
-      const WeightTrackerPage(), // Index 3: Kilo
-      const RecipePage(), // Index 4: Tarifler (YENİ)
+      const SizedBox.shrink(),
+      const WaterTrackerPage(),
+      const WeightTrackerPage(),
+      const RecipePage(),
     ];
 
     return Scaffold(
@@ -112,6 +173,13 @@ class _DashboardPageState extends State<DashboardPage> {
         elevation: 1,
         centerTitle: true,
         automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined, color: Colors.grey),
+            onPressed: _navigateToSettings,
+            tooltip: 'Ayarlar',
+          ),
+        ],
       ),
       body: IndexedStack(index: _selectedIndex, children: pages),
       bottomNavigationBar: BottomNavigationBar(
@@ -128,8 +196,8 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.menu_book),
-            label: 'ChefBot',
-          ), // YENİ BUTON
+            label: 'Tarifler',
+          ),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: const Color(0xFFF27A23),
@@ -161,7 +229,6 @@ class DashboardContent extends StatelessWidget {
     required this.onAddFood,
   });
 
-  // Hesaplanan Değerler
   int get caloriesEaten => meals.values
       .expand((list) => list)
       .fold(0, (sum, item) => sum + item.calories);
