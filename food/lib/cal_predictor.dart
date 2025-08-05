@@ -4,8 +4,9 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 
-// Gerekli import: Chat sayfasını koda dahil ediyoruz.
 import 'chat_page.dart';
+
+import 'package:google_fonts/google_fonts.dart';
 
 class CalPredictor extends StatefulWidget {
   @override
@@ -21,10 +22,7 @@ class _CalPredictorState extends State<CalPredictor> {
   Map<String, dynamic>? _foodData;
   int _servings = 1;
 
-  // ==========================================================
-  // YENİ EKLENEN KISIM 1: Loglanmış yemekleri tutacak liste
   final List<Map<String, dynamic>> _loggedMeals = [];
-  // ==========================================================
 
   final String _serverIp = 'http://192.168.1.5:5000/predict';
 
@@ -75,12 +73,9 @@ class _CalPredictorState extends State<CalPredictor> {
     }
   }
 
-  // ==========================================================
-  // YENİ EKLENEN KISIM 2: Yemekleri loglamak için fonksiyon
   void _logMeal() {
     if (_foodData == null) return;
 
-    // Porsiyon sayısına göre güncel besin değerlerini hesapla
     final Map<String, dynamic> mealToLog = {
       'food_name': _foodData!['food_name'],
       'calories': (_foodData!['calories'] as num).toInt() * _servings,
@@ -90,8 +85,8 @@ class _CalPredictorState extends State<CalPredictor> {
     };
 
     setState(() {
-      _loggedMeals.add(mealToLog); // Yemeği listeye ekle
-      _image = null; // Ana ekrana dönmek için resmi temizle
+      _loggedMeals.add(mealToLog);
+      _image = null;
       _foodData = null;
     });
 
@@ -102,21 +97,29 @@ class _CalPredictorState extends State<CalPredictor> {
       ),
     );
   }
-  // ==========================================================
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFDE8D8),
 
-      // ==========================================================
-      // YENİ EKLENEN KISIM 3: Chatbot'a giden buton
+      appBar: AppBar(
+        title: Text(
+          'Mamma Mia',
+          style: GoogleFonts.pacifico(fontSize: 28, color: Colors.white),
+        ),
+        centerTitle: true,
+        backgroundColor: const Color(0xFFF27A23),
+        elevation: 0,
+        automaticallyImplyLeading: false, 
+      ),
+
+     
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           Navigator.push(
             context,
             MaterialPageRoute(
-              // Chat sayfasına loglanmış yemek listesini gönderiyoruz
               builder: (context) => ChatPage(mealHistory: _loggedMeals),
             ),
           );
@@ -125,8 +128,6 @@ class _CalPredictorState extends State<CalPredictor> {
         label: const Text('Danışman'),
         backgroundColor: const Color(0xFFF27A23),
       ),
-
-      // ==========================================================
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -141,7 +142,6 @@ class _CalPredictorState extends State<CalPredictor> {
     );
   }
 
-  // Bu kısımdan sonrası büyük ölçüde aynı, sadece Log Meal butonu güncellendi.
 
   Widget _buildContent() {
     if (_image == null) {
@@ -157,7 +157,8 @@ class _CalPredictorState extends State<CalPredictor> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const SizedBox(height: 100),
-          const Icon(Icons.fastfood_outlined, size: 80, color: Colors.black54),
+          // İkonu resimdeki gibi değiştirdim
+          const Icon(Icons.restaurant, size: 80, color: Colors.black54),
           const SizedBox(height: 20),
           const Text(
             'Get nutritional information from a photo.',
@@ -184,6 +185,7 @@ class _CalPredictorState extends State<CalPredictor> {
     );
   }
 
+ 
   Widget _buildFoodCard() {
     return Container(
       decoration: BoxDecoration(
@@ -218,8 +220,6 @@ class _CalPredictorState extends State<CalPredictor> {
     );
   }
 
-  // ==========================================================
-  // YENİ EKLENEN KISIM 4: Log Meal Butonunun işlevini değiştirme
   Widget _buildLogMealButton() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -246,7 +246,6 @@ class _CalPredictorState extends State<CalPredictor> {
       ),
     );
   }
-  // ==========================================================
 
   Widget _buildFoodImage() {
     String foodName = "Analyzing...";
