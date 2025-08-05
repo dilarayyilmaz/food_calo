@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'cal_predictor.dart';
+import 'splash_screen.dart'; 
 
 void main() {
   runApp(const MyApp());
@@ -11,16 +11,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Calorie Predictor',
-
+      title: 'Mamma Mia', 
       debugShowCheckedModeBanner: false,
-
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFF27A23)),
-
         useMaterial3: true,
       ),
-      home: CalPredictor(),
+      
+      home: const SplashScreen(),
     );
   }
 }

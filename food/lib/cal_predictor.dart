@@ -4,6 +4,9 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 
+// Gerekli import: Chat sayfasını koda dahil ediyoruz.
+import 'chat_page.dart';
+
 class CalPredictor extends StatefulWidget {
   @override
   _CalPredictorState createState() => _CalPredictorState();
@@ -18,8 +21,11 @@ class _CalPredictorState extends State<CalPredictor> {
   Map<String, dynamic>? _foodData;
   int _servings = 1;
 
-  // Your server IP address
-  // DİKKAT: Buradaki IP adresinin, bilgisayarınızın yerel ağdaki IP adresi olduğundan emin olun.
+  // ==========================================================
+  // YENİ EKLENEN KISIM 1: Loglanmış yemekleri tutacak liste
+  final List<Map<String, dynamic>> _loggedMeals = [];
+  // ==========================================================
+
   final String _serverIp = 'http://192.168.1.5:5000/predict';
 
   Future<void> _pickImage() async {
@@ -39,23 +45,14 @@ class _CalPredictorState extends State<CalPredictor> {
 
   Future<void> _uploadAndPredict(File imageFile) async {
     var request = http.MultipartRequest('POST', Uri.parse(_serverIp));
-
-    // <--- DEĞİŞİKLİK 1: Anahtarı 'file' yerine 'image' olarak değiştiriyoruz.
-    // Bu, Flask backend'inin beklediği anahtarla eşleşmelidir.
     request.files.add(
       await http.MultipartFile.fromPath('image', imageFile.path),
     );
-
     try {
       var response = await request.send();
-
       if (response.statusCode == 200) {
         var responseData = await response.stream.bytesToString();
         var json = jsonDecode(responseData);
-        print(
-          "Backend'den gelen yanıt: $json",
-        ); // Debugging için gelen veriyi yazdır
-
         setState(() {
           _foodData = json;
         });
@@ -78,10 +75,58 @@ class _CalPredictorState extends State<CalPredictor> {
     }
   }
 
+  // ==========================================================
+  // YENİ EKLENEN KISIM 2: Yemekleri loglamak için fonksiyon
+  void _logMeal() {
+    if (_foodData == null) return;
+
+    // Porsiyon sayısına göre güncel besin değerlerini hesapla
+    final Map<String, dynamic> mealToLog = {
+      'food_name': _foodData!['food_name'],
+      'calories': (_foodData!['calories'] as num).toInt() * _servings,
+      'protein': (_foodData!['protein'] as num) * _servings,
+      'fat': (_foodData!['fat'] as num) * _servings,
+      'carbs': (_foodData!['carbs'] as num) * _servings,
+    };
+
+    setState(() {
+      _loggedMeals.add(mealToLog); // Yemeği listeye ekle
+      _image = null; // Ana ekrana dönmek için resmi temizle
+      _foodData = null;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${mealToLog['food_name']} başarıyla günlüğe eklendi!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+  // ==========================================================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFDE8D8),
+
+      // ==========================================================
+      // YENİ EKLENEN KISIM 3: Chatbot'a giden buton
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              // Chat sayfasına loglanmış yemek listesini gönderiyoruz
+              builder: (context) => ChatPage(mealHistory: _loggedMeals),
+            ),
+          );
+        },
+        icon: const Icon(Icons.chat_bubble_outline),
+        label: const Text('Danışman'),
+        backgroundColor: const Color(0xFFF27A23),
+      ),
+
+      // ==========================================================
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -95,6 +140,8 @@ class _CalPredictorState extends State<CalPredictor> {
       ),
     );
   }
+
+  // Bu kısımdan sonrası büyük ölçüde aynı, sadece Log Meal butonu güncellendi.
 
   Widget _buildContent() {
     if (_image == null) {
@@ -171,14 +218,41 @@ class _CalPredictorState extends State<CalPredictor> {
     );
   }
 
+  // ==========================================================
+  // YENİ EKLENEN KISIM 4: Log Meal Butonunun işlevini değiştirme
+  Widget _buildLogMealButton() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: _logMeal, // Artık yeni loglama fonksiyonunu çağırıyor
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.black,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+          ),
+          child: const Text(
+            'Log Meal',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  // ==========================================================
+
   Widget _buildFoodImage() {
     String foodName = "Analyzing...";
     if (!_loading && _foodData != null) {
-      // <--- DEĞİŞİKLİK 2: 'class' yerine 'food_name' anahtarını kullanıyoruz.
-      // Bu, backend'den gelen JSON yanıtıyla eşleşir.
       foodName = _foodData!['food_name'] ?? 'Unknown Food';
     }
-
     return Stack(
       children: [
         Image.file(
@@ -216,13 +290,10 @@ class _CalPredictorState extends State<CalPredictor> {
   }
 
   Widget _buildDetailsSection() {
-    // <--- DEĞİŞİKLİK 3: Gelen verileri daha güvenli bir şekilde alalım.
-    // Backend'den gelen tüm değerler double veya int olabilir. num ile alıp sonra yuvarlamak en güvenlisidir.
     final calories = (_foodData!['calories'] as num?)?.toInt() ?? 0;
     final carbs = (_foodData!['carbs'] as num?)?.round() ?? 0;
     final protein = (_foodData!['protein'] as num?)?.round() ?? 0;
     final fat = (_foodData!['fat'] as num?)?.round() ?? 0;
-
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -268,7 +339,7 @@ class _CalPredictorState extends State<CalPredictor> {
           child: Row(
             children: [
               Text(
-                '${totalCalories} kcal',
+                '$totalCalories kcal',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -301,11 +372,7 @@ class _CalPredictorState extends State<CalPredictor> {
               IconButton(
                 icon: const Icon(Icons.remove),
                 onPressed: () {
-                  if (_servings > 1) {
-                    setState(() {
-                      _servings--;
-                    });
-                  }
+                  if (_servings > 1) setState(() => _servings--);
                 },
                 constraints: const BoxConstraints(),
               ),
@@ -318,11 +385,7 @@ class _CalPredictorState extends State<CalPredictor> {
               ),
               IconButton(
                 icon: const Icon(Icons.add),
-                onPressed: () {
-                  setState(() {
-                    _servings++;
-                  });
-                },
+                onPressed: () => setState(() => _servings++),
                 constraints: const BoxConstraints(),
               ),
             ],
@@ -364,7 +427,7 @@ class _CalPredictorState extends State<CalPredictor> {
           title: 'Carbs',
           value: '${totalCarbs}g',
           color: const Color(0xFFFBC02D),
-          progress: 0.7, // Bu değeri dinamik olarak hesaplayabilirsiniz
+          progress: 0.7,
         ),
         const SizedBox(width: 12),
         _buildNutrientCard(
@@ -449,37 +512,6 @@ class _CalPredictorState extends State<CalPredictor> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLogMealButton() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: () {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('Meal Logged!')));
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.black,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(30),
-            ),
-          ),
-          child: const Text(
-            'Log Meal',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
         ),
       ),
     );
