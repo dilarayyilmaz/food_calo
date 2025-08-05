@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 
 class MealLogPage extends StatelessWidget {
-  // Bu sayfa, gösterilecek yemek listesini dışarıdan bir parametre olarak alır.
   final List<Map<String, dynamic>> loggedMeals;
 
   const MealLogPage({super.key, required this.loggedMeals});
 
   @override
   Widget build(BuildContext context) {
-    // Toplam kaloriyi hesaplayalım
     final int totalCalories = loggedMeals.fold(
       0,
       (sum, item) => sum + (item['calories'] as int),
@@ -20,7 +18,6 @@ class MealLogPage extends StatelessWidget {
         backgroundColor: const Color(0xFFF27A23),
         foregroundColor: Colors.white,
         actions: [
-          // Toplam kaloriyi AppBar'da gösterelim
           Center(
             child: Padding(
               padding: const EdgeInsets.only(right: 16.0),
@@ -37,7 +34,6 @@ class MealLogPage extends StatelessWidget {
       ),
       backgroundColor: const Color(0xFFFDE8D8),
       body:
-          // Eğer liste boşsa, kullanıcıya bir mesaj göster.
           loggedMeals.isEmpty
           ? const Center(
               child: Column(
@@ -52,7 +48,6 @@ class MealLogPage extends StatelessWidget {
                 ],
               ),
             )
-          // Eğer listede yemek varsa, ListView ile göster.
           : ListView.builder(
               itemCount: loggedMeals.length,
               itemBuilder: (context, index) {

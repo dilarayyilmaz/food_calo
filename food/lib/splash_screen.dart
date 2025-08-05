@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-// Yönlendirilecek sayfa artık DashboardPage
 import 'dashboard_page.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -22,7 +21,6 @@ class _SplashScreenState extends State<SplashScreen> {
   void _navigateToDashboard() {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        // HEDEFİ DEĞİŞTİRDİK: CalPredictor yerine DashboardPage
         builder: (BuildContext context) => const DashboardPage(),
       ),
     );
