@@ -1,7 +1,9 @@
-import 'dart:async'; 
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart'; 
-import 'cal_predictor.dart'; 
+import 'package:google_fonts/google_fonts.dart';
+
+// Yönlendirilecek sayfa artık DashboardPage
+import 'dashboard_page.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -14,20 +16,22 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Timer(const Duration(seconds: 2), _navigateToHome);
+    Timer(const Duration(seconds: 2), _navigateToDashboard);
   }
 
-  void _navigateToHome() {
-    
+  void _navigateToDashboard() {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (BuildContext context) => CalPredictor()),
+      MaterialPageRoute(
+        // HEDEFİ DEĞİŞTİRDİK: CalPredictor yerine DashboardPage
+        builder: (BuildContext context) => const DashboardPage(),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF27A23), 
+      backgroundColor: const Color(0xFFF27A23),
       body: Center(
         child: Text(
           'Mamma Mia',

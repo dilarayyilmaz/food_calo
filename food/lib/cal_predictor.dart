@@ -5,10 +5,15 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'chat_page.dart';
+import 'meal_log_page.dart';
 
+// <<<--- EKSİK OLAN VE HATAYA NEDEN OLAN IMPORT SATIRI ---<<<
 import 'package:google_fonts/google_fonts.dart';
 
 class CalPredictor extends StatefulWidget {
+  // CalPredictor bir StatefulWidget olduğu için constructor'ı 'const' olamaz.
+  CalPredictor({super.key});
+
   @override
   _CalPredictorState createState() => _CalPredictorState();
 }
@@ -26,6 +31,8 @@ class _CalPredictorState extends State<CalPredictor> {
 
   final String _serverIp = 'http://192.168.1.5:5000/predict';
 
+  // ... (Geri kalan tüm fonksiyonlar aynı, hiç dokunmuyoruz) ...
+  // ...
   Future<void> _pickImage() async {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
@@ -98,11 +105,12 @@ class _CalPredictorState extends State<CalPredictor> {
     );
   }
 
+  // ...
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFDE8D8),
-
       appBar: AppBar(
         title: Text(
           'Mamma Mia',
@@ -110,11 +118,27 @@ class _CalPredictorState extends State<CalPredictor> {
         ),
         centerTitle: true,
         backgroundColor: const Color(0xFFF27A23),
+        foregroundColor: Colors.white, // Geri tuşunun rengini beyaz yapar
         elevation: 0,
-        automaticallyImplyLeading: false, 
+        // <<<--- UI/UX İYİLEŞTİRMESİ ---<<<
+        // Bu sayfaya artık ana menüden gelindiği için, geri tuşunu
+        // otomatik olarak göstermesine izin veriyoruz.
+        // `automaticallyImplyLeading: false` satırını sildik.
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.book, size: 28),
+            tooltip: 'Yemek Günlüğü',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => MealLogPage(loggedMeals: _loggedMeals),
+                ),
+              );
+            },
+          ),
+        ],
       ),
-
-     
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           Navigator.push(
@@ -142,7 +166,8 @@ class _CalPredictorState extends State<CalPredictor> {
     );
   }
 
-
+  // ... (Geri kalan tüm _build... fonksiyonları aynı)
+  // ...
   Widget _buildContent() {
     if (_image == null) {
       return _buildImagePickerButton();
@@ -157,7 +182,6 @@ class _CalPredictorState extends State<CalPredictor> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const SizedBox(height: 100),
-          // İkonu resimdeki gibi değiştirdim
           const Icon(Icons.restaurant, size: 80, color: Colors.black54),
           const SizedBox(height: 20),
           const Text(
@@ -185,7 +209,6 @@ class _CalPredictorState extends State<CalPredictor> {
     );
   }
 
- 
   Widget _buildFoodCard() {
     return Container(
       decoration: BoxDecoration(
@@ -226,7 +249,7 @@ class _CalPredictorState extends State<CalPredictor> {
       child: SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          onPressed: _logMeal, // Artık yeni loglama fonksiyonunu çağırıyor
+          onPressed: _logMeal,
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.black,
             padding: const EdgeInsets.symmetric(vertical: 16),
