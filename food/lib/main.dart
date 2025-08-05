@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'splash_screen.dart'; // Uygulama splash screen ile başlayacak
+import 'splash_screen.dart'; 
 
 void main() {
   runApp(const MyApp());

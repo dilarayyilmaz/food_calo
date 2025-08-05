@@ -6,6 +6,7 @@ import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'cal_predictor.dart';
 import 'water_tracker_page.dart';
 import 'weight_tracker_page.dart';
+import 'recipe_page.dart'; 
 
 // Veri Modeli
 class FoodItem {
@@ -32,7 +33,7 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  int _selectedIndex = 0; 
+  int _selectedIndex = 0;
 
   int _calorieGoal = 2200;
   double _carbsGoal = 250, _proteinGoal = 120, _fatGoal = 70;
@@ -92,9 +93,10 @@ class _DashboardPageState extends State<DashboardPage> {
         onDateChange: (newDate) => setState(() => _selectedDate = newDate),
         onAddFood: _addFoodToMeal,
       ),
-      const SizedBox.shrink(), 
-      const WaterTrackerPage(), 
-      const WeightTrackerPage(), 
+      const SizedBox.shrink(), // Index 1 (Kalori) için yer tutucu
+      const WaterTrackerPage(), // Index 2: Su
+      const WeightTrackerPage(), // Index 3: Kilo
+      const RecipePage(), // Index 4: Tarifler (YENİ)
     ];
 
     return Scaffold(
@@ -111,7 +113,7 @@ class _DashboardPageState extends State<DashboardPage> {
         centerTitle: true,
         automaticallyImplyLeading: false,
       ),
-      body: pages[_selectedIndex],
+      body: IndexedStack(index: _selectedIndex, children: pages),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Ana Sayfa'),
@@ -124,6 +126,10 @@ class _DashboardPageState extends State<DashboardPage> {
             icon: Icon(Icons.monitor_weight),
             label: 'Kilo',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.menu_book),
+            label: 'ChefBot',
+          ), // YENİ BUTON
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: const Color(0xFFF27A23),
@@ -135,7 +141,6 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 }
 
-// <<<--- ANA SAYFANIN İÇERİĞİNİ AYRI BİR WIDGET'A TAŞIDIK ---<<<
 class DashboardContent extends StatelessWidget {
   final int calorieGoal;
   final Map<String, List<FoodItem>> meals;
@@ -192,7 +197,6 @@ class DashboardContent extends StatelessWidget {
     );
   }
 
-  // Arayüzü oluşturan yardımcı fonksiyonlar
   Widget _buildCalorieCircle() {
     double percent = calorieGoal > 0 ? caloriesEaten / calorieGoal : 0;
     if (percent > 1) percent = 1;

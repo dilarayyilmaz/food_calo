@@ -40,6 +40,8 @@ dependencies:
   intl: ^0.20.2
   percent_indicator: ^4.2.5
   fl_chart: ^1.0.0
+  confetti: ^0.8.0
+  simple_animations: ^5.2.0
   
 
 dev_dependencies:
@@ -62,7 +64,7 @@ flutter:
 
   # assets: bölümünün başındaki # işaretini kaldırın ve klasör yolunu ekleyin.
   assets:
-    - assets/images/
+    - assets/images/bottle.png
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'dart:math';
+import 'package:confetti/confetti.dart'; // Konfeti paketi
 
 class WeightEntry {
   final double weight;
@@ -21,6 +22,8 @@ class _WeightTrackerPageState extends State<WeightTrackerPage> {
   double? _targetWeight;
   final List<WeightEntry> _weightHistory = [];
 
+  late ConfettiController _confettiController;
+
   double get _currentWeight =>
       _weightHistory.isEmpty ? 0.0 : _weightHistory.last.weight;
   double get _startingWeight =>
@@ -29,7 +32,39 @@ class _WeightTrackerPageState extends State<WeightTrackerPage> {
   @override
   void initState() {
     super.initState();
-    
+    _confettiController = ConfettiController(
+      duration: const Duration(seconds: 1),
+    );
+  }
+
+  @override
+  void dispose() {
+    _confettiController.dispose();
+    super.dispose();
+  }
+
+  void _checkIfGoalReached() {
+    if (_targetWeight != null &&
+        _currentWeight > 0 &&
+        _currentWeight <= _targetWeight!) {
+      _confettiController.play();
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text('🎉 Tebrikler! 🎉'),
+          content: const Text('Hedef kilona ulaştın! Harika bir iş çıkardın.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Harika!'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   Future<void> _showEditDialog({bool isEditingTarget = false}) async {
@@ -70,14 +105,20 @@ class _WeightTrackerPageState extends State<WeightTrackerPage> {
                         WeightEntry(weight: value, date: DateTime.now()),
                       );
                       if (_targetWeight == null) {
-                        Future.delayed(const Duration(milliseconds: 300), () {
-                          _showEditDialog(isEditingTarget: true);
-                        });
+                        Future.delayed(
+                          const Duration(milliseconds: 300),
+                          () => _showEditDialog(isEditingTarget: true),
+                        );
                       }
                     }
                   });
+                  Navigator.pop(
+                    context,
+                  ); // Diyalogu kapattıktan sonra kontrol et
+                  _checkIfGoalReached();
+                } else {
+                  Navigator.pop(context);
                 }
-                Navigator.pop(context);
               },
               child: const Text('Kaydet'),
             ),
@@ -89,10 +130,26 @@ class _WeightTrackerPageState extends State<WeightTrackerPage> {
 
   @override
   Widget build(BuildContext context) {
-    // <<<--- DEĞİŞİKLİK BURADA: Scaffold ve AppBar kaldırıldı ---<<<
     return Container(
-      color: const Color(0xFFFEF7F1), // Sayfanın arka plan rengini koruyoruz
-      child: _weightHistory.isEmpty ? _buildEmptyState() : _buildDataState(),
+      color: const Color(0xFFFEF7F1),
+      child: Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          _weightHistory.isEmpty ? _buildEmptyState() : _buildDataState(),
+          ConfettiWidget(
+            confettiController: _confettiController,
+            blastDirectionality: BlastDirectionality.explosive,
+            shouldLoop: false,
+            colors: const [
+              Colors.green,
+              Colors.blue,
+              Colors.pink,
+              Colors.orange,
+              Colors.purple,
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -147,7 +204,6 @@ class _WeightTrackerPageState extends State<WeightTrackerPage> {
     final double remainingWeight = (_currentWeight > 0 && _targetWeight != null)
         ? _currentWeight - _targetWeight!
         : 0.0;
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20.0),
       child: Column(
@@ -277,15 +333,12 @@ class _WeightTrackerPageState extends State<WeightTrackerPage> {
 
   Widget _buildGraph() {
     if (_weightHistory.length < 2) {
-      if (_weightHistory.isNotEmpty) {
-        return const SizedBox(
-          height: 300,
-          child: Center(
-            child: Text('Grafiği görmek için en az 2 kilo kaydı gerekir.'),
-          ),
-        );
-      }
-      return const SizedBox.shrink();
+      return const SizedBox(
+        height: 300,
+        child: Center(
+          child: Text('Grafiği görmek için en az 2 kilo kaydı gerekir.'),
+        ),
+      );
     }
 
     final allWeights = _weightHistory.map((e) => e.weight).toList();
@@ -300,11 +353,16 @@ class _WeightTrackerPageState extends State<WeightTrackerPage> {
     final timeSpan = lastDate.difference(firstDate).inMilliseconds;
     final double interval = timeSpan > 0
         ? timeSpan / 4
-        : Duration(days: 1).inMilliseconds.toDouble();
+        : const Duration(days: 1).inMilliseconds.toDouble();
 
-    List<FlSpot> spots = _weightHistory.map((entry) {
-      return FlSpot(entry.date.millisecondsSinceEpoch.toDouble(), entry.weight);
-    }).toList();
+    List<FlSpot> spots = _weightHistory
+        .map(
+          (entry) => FlSpot(
+            entry.date.millisecondsSinceEpoch.toDouble(),
+            entry.weight,
+          ),
+        )
+        .toList();
 
     return SizedBox(
       height: 300,
@@ -398,20 +456,18 @@ class _WeightTrackerPageState extends State<WeightTrackerPage> {
           lineTouchData: LineTouchData(
             touchTooltipData: LineTouchTooltipData(
               getTooltipColor: (spot) => Colors.black.withOpacity(0.8),
-              getTooltipItems: (spots) {
-                return spots.map((spot) {
-                  final date = DateTime.fromMillisecondsSinceEpoch(
-                    spot.x.toInt(),
-                  );
-                  return LineTooltipItem(
-                    '${spot.y.toStringAsFixed(1)} kg\n${DateFormat('d MMMM').format(date)}',
-                    const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  );
-                }).toList();
-              },
+              getTooltipItems: (spots) => spots.map((spot) {
+                final date = DateTime.fromMillisecondsSinceEpoch(
+                  spot.x.toInt(),
+                );
+                return LineTooltipItem(
+                  '${spot.y.toStringAsFixed(1)} kg\n${DateFormat('d MMMM').format(date)}',
+                  const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                );
+              }).toList(),
             ),
           ),
         ),

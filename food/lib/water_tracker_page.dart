@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-
+import 'package:percent_indicator/circular_percent_indicator.dart';
 
 // Veri Modeli
 class WaterLog {
   final int amount;
   final DateTime time;
-
   WaterLog({required this.amount, required this.time});
 }
 
 class WaterTrackerPage extends StatefulWidget {
   const WaterTrackerPage({super.key});
-
   @override
   State<WaterTrackerPage> createState() => _WaterTrackerPageState();
 }
@@ -34,13 +32,10 @@ class _WaterTrackerPageState extends State<WaterTrackerPage> {
     });
   }
 
-  // <<<--- HEDEF AYARLAMA DİYALOG KUTUSU FONKSİYONU ---<<<
   Future<void> _showGoalSettingDialog() async {
     final _goalController = TextEditingController(text: _dailyGoal.toString());
-
     return showDialog<void>(
       context: context,
-      barrierDismissible: true,
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: const Color(0xFFFEF7F1),
@@ -56,19 +51,15 @@ class _WaterTrackerPageState extends State<WaterTrackerPage> {
           ),
           actions: <Widget>[
             TextButton(
+              onPressed: () => Navigator.of(context).pop(),
               child: const Text('İptal'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
             ),
             TextButton(
               child: const Text('Kaydet'),
               onPressed: () {
                 final newGoal = int.tryParse(_goalController.text);
                 if (newGoal != null && newGoal > 0) {
-                  setState(() {
-                    _dailyGoal = newGoal; // Hedefi güncelle
-                  });
+                  setState(() => _dailyGoal = newGoal);
                 }
                 Navigator.of(context).pop();
               },
@@ -84,166 +75,67 @@ class _WaterTrackerPageState extends State<WaterTrackerPage> {
     return Container(
       color: const Color(0xFFFEF7F1),
       child: SingleChildScrollView(
-        child: Column(children: [_buildHeader(), _buildHistorySection()]),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 0),
-      child: Column(
-        children: [
-          _buildMascotAndTitle(),
-          const SizedBox(height: 24),
-          _buildProgressIndicator(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMascotAndTitle() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Image.asset(
-          'assets/images/water_drop.png',
-          height: 60,
-          color: Colors.grey.shade600,
-          errorBuilder: (context, error, stackTrace) {
-            return const Icon(
-              Icons.water_drop_outlined,
-              size: 60,
-              color: Colors.grey,
-            );
-          },
-        ),
-        const SizedBox(width: 16),
-        const Text(
-          "Su Takibi",
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF0D47A1),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 40.0, horizontal: 16.0),
+          child: Column(
+            children: [
+              _buildProgressIndicator(),
+              const SizedBox(height: 40),
+              _buildHistorySection(),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 
-  Widget _buildProgressIndicator() {
-    double progress = _dailyGoal > 0 ? _currentIntake / _dailyGoal : 0;
-    if (progress > 1.0) progress = 1.0;
 
-    // <<<--- DEĞİŞİKLİK: GestureDetector ile sarmaladık ---<<<
+  Widget _buildProgressIndicator() {
+    double percent = _dailyGoal > 0 ? _currentIntake / _dailyGoal : 0;
+    if (percent > 1.0) percent = 1.0;
+
     return GestureDetector(
-      // Hedefi ayarlamak için tüm alana tıklanabilirlik ekliyoruz.
       onTap: _showGoalSettingDialog,
-      child: SizedBox(
-        height: 200,
-        width: 200,
-        child: Stack(
-          fit: StackFit.expand,
-          clipBehavior: Clip.none,
+      child: CircularPercentIndicator(
+        radius: 100.0,
+        lineWidth: 15.0,
+        percent: percent,
+        animation: true,
+        animationDuration: 800,
+        center: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(
-              value: 1,
-              strokeWidth: 20,
-              backgroundColor: const Color(0xFFF27A23).withOpacity(0.3),
-            ),
-            ShaderMask(
-              shaderCallback: (rect) {
-                return const SweepGradient(
-                  startAngle: -1.57,
-                  colors: [Colors.lightBlueAccent, Colors.blue],
-                ).createShader(rect);
-              },
-              child: CircularProgressIndicator(
-                value: progress,
-                strokeWidth: 20,
-                backgroundColor: Colors.transparent,
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+            Text(
+              '${(percent * 100).toStringAsFixed(0)} %',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 48.0,
+                color: Color(0xFF3D5AFE),
               ),
             ),
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '$_currentIntake / $_dailyGoal',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 28.0,
-                      color: Color(0xFF0D47A1),
-                    ),
-                  ),
-                  const Text(
-                    'ml',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                ],
-              ),
-            ),
-            Positioned(
-              bottom: -15,
-              left: 0,
-              right: 0,
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: GestureDetector(
-                  onTap: () => _addWater(_standardAmount),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 10,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.local_drink_outlined,
-                          color: Colors.blue.shade700,
-                          size: 28,
-                        ),
-                        Text(
-                          '${_standardAmount}ml',
-                          style: TextStyle(
-                            color: Colors.blue.shade900,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+            const SizedBox(height: 8),
+            Text(
+              '$_currentIntake / $_dailyGoal ml',
+              style: const TextStyle(fontSize: 16, color: Colors.grey),
             ),
           ],
         ),
+        circularStrokeCap: CircularStrokeCap.round,
+        backgroundColor: Colors.deepPurple.withOpacity(0.15),
+        progressColor: const Color(0xFF651FFF),
       ),
     );
   }
 
   Widget _buildHistorySection() {
     int glassesDrunk = (_currentIntake / _standardAmount).floor();
-    // <<<--- DEĞİŞİKLİK: Toplam bardak sayısı artık güncel hedefe göre hesaplanıyor ---<<<
     int totalGlasses = (_dailyGoal > 0)
         ? (_dailyGoal / _standardAmount).ceil()
         : 0;
 
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.all(16.0),
+      margin: const EdgeInsets.symmetric(horizontal: 16.0),
       padding: const EdgeInsets.all(20.0),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -281,7 +173,29 @@ class _WaterTrackerPageState extends State<WaterTrackerPage> {
             ],
           ),
           const SizedBox(height: 20),
+          Center(
+            child: ElevatedButton.icon(
+              onPressed: () => _addWater(_standardAmount),
+              icon: const Icon(Icons.add),
+              label: Text('$_standardAmount ml Ekle'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF27A23),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 30,
+                  vertical: 15,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Divider(),
+          const SizedBox(height: 10),
           Wrap(
+            alignment: WrapAlignment.center, 
             spacing: 16.0,
             runSpacing: 16.0,
             children: List.generate(totalGlasses, (index) {
