@@ -1,17 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 
-import 'chat_page.dart';
-import 'meal_log_page.dart';
-
-// <<<--- EKSİK OLAN VE HATAYA NEDEN OLAN IMPORT SATIRI ---<<<
-import 'package:google_fonts/google_fonts.dart';
-
 class CalPredictor extends StatefulWidget {
-  // CalPredictor bir StatefulWidget olduğu için constructor'ı 'const' olamaz.
   CalPredictor({super.key});
 
   @override
@@ -20,27 +14,21 @@ class CalPredictor extends StatefulWidget {
 
 class _CalPredictorState extends State<CalPredictor> {
   File? _image;
-  String _resultText = '';
   bool _loading = false;
   final picker = ImagePicker();
 
   Map<String, dynamic>? _foodData;
   int _servings = 1;
 
-  final List<Map<String, dynamic>> _loggedMeals = [];
+  final String _serverIp =
+      'http://192.168.1.5:5000/predict'; 
 
-  final String _serverIp = 'http://192.168.1.5:5000/predict';
-
-  // ... (Geri kalan tüm fonksiyonlar aynı, hiç dokunmuyoruz) ...
-  // ...
   Future<void> _pickImage() async {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
     if (pickedFile != null) {
       setState(() {
         _image = File(pickedFile.path);
-        _foodData = null;
-        _resultText = '';
+        _foodData = null; 
         _servings = 1;
         _loading = true;
       });
@@ -65,13 +53,15 @@ class _CalPredictorState extends State<CalPredictor> {
         var responseData = await response.stream.bytesToString();
         var json = jsonDecode(responseData);
         setState(() {
-          _resultText =
-              'Prediction failed: ${json['error'] ?? 'Unknown error'}';
+          _foodData = {'error': json['error'] ?? 'Prediction failed'};
         });
       }
     } catch (e) {
       setState(() {
-        _resultText = 'Error connecting to the server: $e';
+        _foodData = {
+          'error':
+              'Connection error. Please check the server IP and your connection.',
+        };
       });
     } finally {
       setState(() {
@@ -80,10 +70,10 @@ class _CalPredictorState extends State<CalPredictor> {
     }
   }
 
-  void _logMeal() {
-    if (_foodData == null) return;
+  void _logMealAndGoBack() {
+    if (_foodData == null || _foodData!['error'] != null) return;
 
-    final Map<String, dynamic> mealToLog = {
+    final Map<String, dynamic> mealDataToReturn = {
       'food_name': _foodData!['food_name'],
       'calories': (_foodData!['calories'] as num).toInt() * _servings,
       'protein': (_foodData!['protein'] as num) * _servings,
@@ -91,26 +81,13 @@ class _CalPredictorState extends State<CalPredictor> {
       'carbs': (_foodData!['carbs'] as num) * _servings,
     };
 
-    setState(() {
-      _loggedMeals.add(mealToLog);
-      _image = null;
-      _foodData = null;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${mealToLog['food_name']} başarıyla günlüğe eklendi!'),
-        backgroundColor: Colors.green,
-      ),
-    );
+    Navigator.of(context).pop(mealDataToReturn);
   }
-
-  // ...
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFDE8D8),
+      backgroundColor: const Color(0xFFFEF7F1),
       appBar: AppBar(
         title: Text(
           'Mamma Mia',
@@ -118,61 +95,35 @@ class _CalPredictorState extends State<CalPredictor> {
         ),
         centerTitle: true,
         backgroundColor: const Color(0xFFF27A23),
-        foregroundColor: Colors.white, // Geri tuşunun rengini beyaz yapar
+        foregroundColor: Colors.white,
         elevation: 0,
-        // <<<--- UI/UX İYİLEŞTİRMESİ ---<<<
-        // Bu sayfaya artık ana menüden gelindiği için, geri tuşunu
-        // otomatik olarak göstermesine izin veriyoruz.
-        // `automaticallyImplyLeading: false` satırını sildik.
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.book, size: 28),
-            tooltip: 'Yemek Günlüğü',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => MealLogPage(loggedMeals: _loggedMeals),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ChatPage(mealHistory: _loggedMeals),
-            ),
-          );
-        },
-        icon: const Icon(Icons.chat_bubble_outline),
-        label: const Text('Danışman'),
-        backgroundColor: const Color(0xFFF27A23),
+        actions: const [], 
       ),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [const SizedBox(height: 20), _buildContent()],
-            ),
+            child: _buildContent(),
           ),
         ),
       ),
     );
   }
 
-  // ... (Geri kalan tüm _build... fonksiyonları aynı)
-  // ...
   Widget _buildContent() {
     if (_image == null) {
       return _buildImagePickerButton();
-    } else {
+    } else if (_loading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(50.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    } else if (_foodData != null && _foodData!['error'] == null) {
       return _buildFoodCard();
+    } else {
+      return _buildErrorCard();
     }
   }
 
@@ -198,11 +149,30 @@ class _CalPredictorState extends State<CalPredictor> {
               backgroundColor: const Color(0xFFF27A23),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-              textStyle: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorCard() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: 100),
+          Icon(Icons.error_outline, color: Colors.red.shade400, size: 80),
+          const SizedBox(height: 20),
+          Text(
+            _foodData?['error'] ?? 'Bilinmeyen bir hata oluştu.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16, color: Colors.red.shade700),
+          ),
+          const SizedBox(height: 30),
+          ElevatedButton(
+            onPressed: () => setState(() => _image = null),
+            child: const Text('Tekrar Dene'),
           ),
         ],
       ),
@@ -220,23 +190,8 @@ class _CalPredictorState extends State<CalPredictor> {
         child: Column(
           children: [
             _buildFoodImage(),
-            if (!_loading && _foodData != null)
-              _buildDetailsSection()
-            else if (_loading)
-              const Padding(
-                padding: EdgeInsets.all(50.0),
-                child: CircularProgressIndicator(),
-              )
-            else
-              Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Text(
-                  _resultText,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.red, fontSize: 16),
-                ),
-              ),
-            if (!_loading && _foodData != null) _buildLogMealButton(),
+            _buildDetailsSection(),
+            _buildLogMealButton(),
           ],
         ),
       ),
@@ -249,7 +204,7 @@ class _CalPredictorState extends State<CalPredictor> {
       child: SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          onPressed: _logMeal,
+          onPressed: _logMealAndGoBack,
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.black,
             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -258,7 +213,7 @@ class _CalPredictorState extends State<CalPredictor> {
             ),
           ),
           child: const Text(
-            'Log Meal',
+            'Öğüne Ekle',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -271,10 +226,7 @@ class _CalPredictorState extends State<CalPredictor> {
   }
 
   Widget _buildFoodImage() {
-    String foodName = "Analyzing...";
-    if (!_loading && _foodData != null) {
-      foodName = _foodData!['food_name'] ?? 'Unknown Food';
-    }
+    String foodName = _foodData!['food_name'] ?? 'Unknown Food';
     return Stack(
       children: [
         Image.file(
@@ -290,7 +242,6 @@ class _CalPredictorState extends State<CalPredictor> {
                 colors: [Colors.black.withOpacity(0.6), Colors.transparent],
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
-                stops: const [0.0, 0.6],
               ),
             ),
           ),
@@ -396,7 +347,6 @@ class _CalPredictorState extends State<CalPredictor> {
                 onPressed: () {
                   if (_servings > 1) setState(() => _servings--);
                 },
-                constraints: const BoxConstraints(),
               ),
               Text(
                 _servings.toString(),
@@ -408,7 +358,6 @@ class _CalPredictorState extends State<CalPredictor> {
               IconButton(
                 icon: const Icon(Icons.add),
                 onPressed: () => setState(() => _servings++),
-                constraints: const BoxConstraints(),
               ),
             ],
           ),
@@ -429,10 +378,6 @@ class _CalPredictorState extends State<CalPredictor> {
           onPressed: () {},
           icon: const Text('Edit', style: TextStyle(color: Colors.grey)),
           label: const Icon(Icons.edit, size: 16, color: Colors.grey),
-          style: TextButton.styleFrom(
-            padding: EdgeInsets.zero,
-            minimumSize: const Size(50, 30),
-          ),
         ),
       ],
     );
@@ -449,21 +394,18 @@ class _CalPredictorState extends State<CalPredictor> {
           title: 'Carbs',
           value: '${totalCarbs}g',
           color: const Color(0xFFFBC02D),
-          progress: 0.7,
         ),
         const SizedBox(width: 12),
         _buildNutrientCard(
           title: 'Protein',
           value: '${totalProtein}g',
           color: const Color(0xFFE57373),
-          progress: 0.5,
         ),
         const SizedBox(width: 12),
         _buildNutrientCard(
           title: 'Fat',
           value: '${totalFat}g',
           color: const Color(0xFF64B5F6),
-          progress: 0.5,
         ),
       ],
     );
@@ -473,7 +415,7 @@ class _CalPredictorState extends State<CalPredictor> {
     required String title,
     required String value,
     required Color color,
-    required double progress,
+    double progress = 0.5,
   }) {
     return Expanded(
       child: Container(

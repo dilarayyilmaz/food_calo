@@ -4,7 +4,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'dart:math';
 
-
 class WeightEntry {
   final double weight;
   final DateTime date;
@@ -20,7 +19,7 @@ class WeightTrackerPage extends StatefulWidget {
 
 class _WeightTrackerPageState extends State<WeightTrackerPage> {
   double? _targetWeight;
-  final List<WeightEntry> _weightHistory = []; 
+  final List<WeightEntry> _weightHistory = [];
 
   double get _currentWeight =>
       _weightHistory.isEmpty ? 0.0 : _weightHistory.last.weight;
@@ -30,6 +29,7 @@ class _WeightTrackerPageState extends State<WeightTrackerPage> {
   @override
   void initState() {
     super.initState();
+    
   }
 
   Future<void> _showEditDialog({bool isEditingTarget = false}) async {
@@ -89,27 +89,10 @@ class _WeightTrackerPageState extends State<WeightTrackerPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFEF7F1),
-      appBar: AppBar(
-        title: Text(
-          'Kilo Takibi',
-          style: GoogleFonts.pacifico(color: Colors.white, fontSize: 28),
-        ),
-        centerTitle: true,
-        backgroundColor: const Color(0xFFF27A23),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          if (_weightHistory.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline, size: 28),
-              onPressed: () => _showEditDialog(isEditingTarget: false),
-              tooltip: 'Yeni Kilo Ekle',
-            ),
-        ],
-      ),
-      body: _weightHistory.isEmpty ? _buildEmptyState() : _buildDataState(),
+    // <<<--- DEĞİŞİKLİK BURADA: Scaffold ve AppBar kaldırıldı ---<<<
+    return Container(
+      color: const Color(0xFFFEF7F1), // Sayfanın arka plan rengini koruyoruz
+      child: _weightHistory.isEmpty ? _buildEmptyState() : _buildDataState(),
     );
   }
 
@@ -302,7 +285,7 @@ class _WeightTrackerPageState extends State<WeightTrackerPage> {
           ),
         );
       }
-      return const SizedBox.shrink(); 
+      return const SizedBox.shrink();
     }
 
     final allWeights = _weightHistory.map((e) => e.weight).toList();
