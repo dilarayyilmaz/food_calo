@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class CalPredictor extends StatefulWidget {
   CalPredictor({super.key});
@@ -20,15 +21,14 @@ class _CalPredictorState extends State<CalPredictor> {
   Map<String, dynamic>? _foodData;
   int _servings = 1;
 
-  final String _serverIp =
-      'http://192.168.1.80:5000/predict'; 
+  final String _serverIp = 'http://192.168.1.80:5000/predict';
 
   Future<void> _pickImage() async {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
       setState(() {
         _image = File(pickedFile.path);
-        _foodData = null; 
+        _foodData = null;
         _servings = 1;
         _loading = true;
       });
@@ -97,7 +97,7 @@ class _CalPredictorState extends State<CalPredictor> {
         backgroundColor: const Color(0xFFF27A23),
         foregroundColor: Colors.white,
         elevation: 0,
-        actions: const [], 
+        actions: const [],
       ),
       body: SafeArea(
         child: SingleChildScrollView(

@@ -10,11 +10,10 @@ import 'package:rxdart/rxdart.dart';
 import 'cal_predictor.dart';
 import 'water_tracker_page.dart';
 import 'weight_tracker_page.dart';
-import 'recipe_page.dart';
 import 'settings_page.dart';
 import 'manual_entry_page.dart';
+import 'recipe_page.dart';
 
-// Veri Modeli
 class FoodItem {
   final String id;
   final String name;
@@ -47,7 +46,6 @@ class FoodItem {
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
-
   @override
   State<DashboardPage> createState() => _DashboardPageState();
 }
@@ -63,12 +61,13 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _navigateToSettings() async {
-    await Navigator.push<bool>(
+    final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (context) => const SettingsPage()),
     );
-    // Geri dönüldüğünde DashboardContent kendi initState'inde hedefleri yeniden yükleyebilir.
-    // Veya daha gelişmiş bir state management çözümü kullanılabilir.
+    if (result == true && mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -76,14 +75,14 @@ class _DashboardPageState extends State<DashboardPage> {
     final List<Widget> pages = [
       DashboardContent(
         key: ValueKey(
-          _selectedDate.toIso8601String(),
-        ), // Tarih değiştiğinde widget'ı yeniden oluştur
+          _selectedDate.toString(),
+        ), 
         selectedDate: _selectedDate,
         onDateChange: (newDate) => setState(() => _selectedDate = newDate),
       ),
       const WaterTrackerPage(),
       const WeightTrackerPage(),
-      const RecipePage(),
+      const RecipePage(), 
     ];
 
     return Scaffold(
@@ -107,9 +106,7 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.grey),
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-            },
+            onPressed: () async => await FirebaseAuth.instance.signOut(),
             tooltip: 'Çıkış Yap',
           ),
         ],
@@ -125,7 +122,7 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.menu_book),
-            label: 'Tarifler',
+            label: 'KBuddy', 
           ),
         ],
         currentIndex: _selectedIndex,
@@ -181,6 +178,7 @@ class _DashboardContentState extends State<DashboardContent> {
     if (!mounted) return;
     final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
+      isScrollControlled: true,
       builder: (context) => _buildAddFoodMenu(),
     );
 
@@ -205,15 +203,16 @@ class _DashboardContentState extends State<DashboardContent> {
             'fat': result['fat'],
             'timestamp': Timestamp.fromDate(dateToSave),
           });
-      if (mounted)
+
+      if (mounted) {
+        setState(() {});
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${result['food_name']} eklendi!'),
             backgroundColor: Colors.green,
           ),
         );
-      
-      setState(() {});
+      }
     }
   }
 
@@ -230,7 +229,7 @@ class _DashboardContentState extends State<DashboardContent> {
                 context,
                 MaterialPageRoute(builder: (context) => CalPredictor()),
               );
-              Navigator.pop(context, photoResult);
+              if (mounted) Navigator.pop(context, photoResult);
             },
           ),
           ListTile(
@@ -243,7 +242,7 @@ class _DashboardContentState extends State<DashboardContent> {
                   builder: (context) => const ManualEntryPage(),
                 ),
               );
-              Navigator.pop(context, manualResult);
+              if (mounted) Navigator.pop(context, manualResult);
             },
           ),
         ],
@@ -271,30 +270,26 @@ class _DashboardContentState extends State<DashboardContent> {
 
     final mealNames = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
     final streams = mealNames.map((meal) {
+      final startOfDay = Timestamp.fromDate(
+        DateTime(
+          widget.selectedDate.year,
+          widget.selectedDate.month,
+          widget.selectedDate.day,
+        ),
+      );
+      final endOfDay = Timestamp.fromDate(
+        DateTime(
+          widget.selectedDate.year,
+          widget.selectedDate.month,
+          widget.selectedDate.day + 1,
+        ),
+      );
       return _firestore
           .collection('users')
           .doc(_currentUser!.uid)
           .collection(meal)
-          .where(
-            'timestamp',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(
-              DateTime(
-                widget.selectedDate.year,
-                widget.selectedDate.month,
-                widget.selectedDate.day,
-              ),
-            ),
-          )
-          .where(
-            'timestamp',
-            isLessThan: Timestamp.fromDate(
-              DateTime(
-                widget.selectedDate.year,
-                widget.selectedDate.month,
-                widget.selectedDate.day + 1,
-              ),
-            ),
-          )
+          .where('timestamp', isGreaterThanOrEqualTo: startOfDay)
+          .where('timestamp', isLessThan: endOfDay)
           .snapshots()
           .map(
             (snapshot) => snapshot.docs
@@ -376,7 +371,7 @@ class _DashboardContentState extends State<DashboardContent> {
           ),
           const Text(
             'KALAN KCAL',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+            style: TextStyle(fontSize: 10, color: Colors.grey),
           ),
         ],
       ),
@@ -522,9 +517,10 @@ class _DashboardContentState extends State<DashboardContent> {
                       ),
                       onDismissed: (direction) {
                         _deleteFoodItem(mealTitle: title, foodId: food.id);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('${food.name} silindi.')),
-                        );
+                        if (mounted)
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('${food.name} silindi.')),
+                          );
                       },
                       child: ListTile(
                         title: Text(food.name),

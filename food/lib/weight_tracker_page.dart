@@ -1,14 +1,27 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'dart:math';
-import 'package:confetti/confetti.dart'; 
+import 'package:confetti/confetti.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
+// ADIM 2'DE GÜNCELLEDİĞİMİZ SINIF
 class WeightEntry {
   final double weight;
   final DateTime date;
+
   WeightEntry({required this.weight, required this.date});
+
+  Map<String, dynamic> toJson() => {
+    'weight': weight,
+    'date': Timestamp.fromDate(date),
+  };
+
+  factory WeightEntry.fromJson(Map<String, dynamic> json) => WeightEntry(
+    weight: (json['weight'] as num).toDouble(),
+    date: (json['date'] as Timestamp).toDate(),
+  );
 }
 
 class WeightTrackerPage extends StatefulWidget {
@@ -19,11 +32,19 @@ class WeightTrackerPage extends StatefulWidget {
 }
 
 class _WeightTrackerPageState extends State<WeightTrackerPage> {
+  // --- Firebase Değişkenleri ---
+  final _auth = FirebaseAuth.instance;
+  final _firestore = FirebaseFirestore.instance;
+  User? _user;
+  bool _isLoading =
+      true; // Veri yüklenirken gösterilecek loading indicator için
+
+  // --- State Değişkenleri (Lokal) ---
   double? _targetWeight;
   final List<WeightEntry> _weightHistory = [];
-
   late ConfettiController _confettiController;
 
+  // --- Getter'lar (Değişmedi) ---
   double get _currentWeight =>
       _weightHistory.isEmpty ? 0.0 : _weightHistory.last.weight;
   double get _startingWeight =>
@@ -35,6 +56,15 @@ class _WeightTrackerPageState extends State<WeightTrackerPage> {
     _confettiController = ConfettiController(
       duration: const Duration(seconds: 1),
     );
+    _user = _auth.currentUser;
+    if (_user != null) {
+      _loadUserDataFromFirebase();
+    } else {
+      // Kullanıcı giriş yapmamışsa, yüklemeyi durdur ve boş ekran göster
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -43,29 +73,55 @@ class _WeightTrackerPageState extends State<WeightTrackerPage> {
     super.dispose();
   }
 
-  void _checkIfGoalReached() {
-    if (_targetWeight != null &&
-        _currentWeight > 0 &&
-        _currentWeight <= _targetWeight!) {
-      _confettiController.play();
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text('🎉 Tebrikler! 🎉'),
-          content: const Text('Hedef kilona ulaştın! Harika bir iş çıkardın.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Harika!'),
-            ),
-          ],
-        ),
+  // --- FIREBASE İLE İLETİŞİM Kuran Metotlar ---
+
+  Future<void> _loadUserDataFromFirebase() async {
+    if (_user == null) return;
+    try {
+      final docRef = _firestore.collection('user_weight_data').doc(_user!.uid);
+      final docSnap = await docRef.get();
+
+      if (docSnap.exists) {
+        final data = docSnap.data()!;
+        _targetWeight = (data['targetWeight'] as num?)?.toDouble();
+
+        // Tarihe göre sıralanmış bir liste elde etmek için
+        final historyData = List<Map<String, dynamic>>.from(
+          data['weightHistory'] ?? [],
+        );
+        _weightHistory.clear();
+        _weightHistory.addAll(historyData.map((e) => WeightEntry.fromJson(e)));
+        _weightHistory.sort((a, b) => a.date.compareTo(b.date));
+      }
+    } catch (e) {
+      // Hata durumunda kullanıcıya bilgi ver
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Veriler yüklenirken hata oluştu: $e')),
       );
+    } finally {
+      // Her durumda yüklemeyi bitir ve ekranı güncelle
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
+
+  Future<void> _updateTargetWeightInFirebase(double newTarget) async {
+    if (_user == null) return;
+    final docRef = _firestore.collection('user_weight_data').doc(_user!.uid);
+    await docRef.set({'targetWeight': newTarget}, SetOptions(merge: true));
+  }
+
+  Future<void> _addWeightEntryToFirebase(WeightEntry newEntry) async {
+    if (_user == null) return;
+    final docRef = _firestore.collection('user_weight_data').doc(_user!.uid);
+    // FieldValue.arrayUnion, mevcut listeye yeni bir eleman ekler.
+    await docRef.set({
+      'weightHistory': FieldValue.arrayUnion([newEntry.toJson()]),
+    }, SetOptions(merge: true));
+  }
+
+  // --- UI METOTLARI (Artık Firebase'i çağırıyorlar) ---
 
   Future<void> _showEditDialog({bool isEditingTarget = false}) async {
     final controller = TextEditingController(
@@ -94,16 +150,32 @@ class _WeightTrackerPageState extends State<WeightTrackerPage> {
               child: const Text('İptal'),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
+                // asenkron yaptık
                 final value = double.tryParse(controller.text);
+                Navigator.pop(context); // Dialog'u hemen kapat
+
                 if (value != null && value > 0) {
                   setState(() {
+                    _isLoading = true;
+                  }); // Yükleme animasyonu başlat
+
+                  try {
                     if (isEditingTarget) {
-                      _targetWeight = value;
+                      await _updateTargetWeightInFirebase(value);
+                      setState(() {
+                        _targetWeight = value;
+                      });
                     } else {
-                      _weightHistory.add(
-                        WeightEntry(weight: value, date: DateTime.now()),
+                      final newEntry = WeightEntry(
+                        weight: value,
+                        date: DateTime.now(),
                       );
+                      await _addWeightEntryToFirebase(newEntry);
+                      setState(() {
+                        _weightHistory.add(newEntry);
+                      });
+
                       if (_targetWeight == null) {
                         Future.delayed(
                           const Duration(milliseconds: 300),
@@ -111,13 +183,18 @@ class _WeightTrackerPageState extends State<WeightTrackerPage> {
                         );
                       }
                     }
-                  });
-                  Navigator.pop(
-                    context,
-                  ); 
-                  _checkIfGoalReached();
-                } else {
-                  Navigator.pop(context);
+                    _checkIfGoalReached(); // Hedef kontrolünü yap
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Veri kaydedilirken hata oluştu: $e'),
+                      ),
+                    );
+                  } finally {
+                    setState(() {
+                      _isLoading = false;
+                    }); // Yüklemeyi bitir
+                  }
                 }
               },
               child: const Text('Kaydet'),
@@ -128,8 +205,21 @@ class _WeightTrackerPageState extends State<WeightTrackerPage> {
     );
   }
 
+  // --- Build Metodu ve Alt Widget'lar (Çoğunlukla aynı, _isLoading eklendi) ---
+
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    // Kullanıcı giriş yapmadıysa veya bir sorun varsa
+    if (_user == null) {
+      return const Center(
+        child: Text("Verileri görmek için lütfen giriş yapın."),
+      );
+    }
+
     return Container(
       color: const Color(0xFFFEF7F1),
       child: Stack(
@@ -152,6 +242,17 @@ class _WeightTrackerPageState extends State<WeightTrackerPage> {
       ),
     );
   }
+
+  // _buildEmptyState, _buildDataState, _buildWeightCards ve diğer UI metotları
+  // HİÇBİR DEĞİŞİKLİK GEREKTİRMEZ. Onları olduğu gibi bırakabilirsiniz.
+  // ... (Önceki kodunuzdaki tüm _build... metotlarını buraya kopyalayın) ...
+  // ...
+  // ...
+
+  // Buraya önceki kodunuzda bulunan tüm _build... metotlarını kopyalayın
+  // Örneğin: _buildEmptyState, _buildDataState, _buildWeightCards,
+  // _buildClickableCard, _buildSummaryInfo, _buildGraph
+  // Bu metotlarda hiçbir değişiklik yapmanıza gerek yok.
 
   Widget _buildEmptyState() {
     return Center(
@@ -473,5 +574,29 @@ class _WeightTrackerPageState extends State<WeightTrackerPage> {
         ),
       ),
     );
+  }
+
+  void _checkIfGoalReached() {
+    if (_targetWeight != null &&
+        _currentWeight > 0 &&
+        _currentWeight <= _targetWeight!) {
+      _confettiController.play();
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text('🎉 Tebrikler! 🎉'),
+          content: const Text('Hedef kilona ulaştın! Harika bir iş çıkardın.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Harika!'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 }
