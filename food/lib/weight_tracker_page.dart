@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'dart:math';
-import 'package:confetti/confetti.dart'; // Konfeti paketi
+import 'package:confetti/confetti.dart'; 
 
 class WeightEntry {
   final double weight;
@@ -114,7 +114,7 @@ class _WeightTrackerPageState extends State<WeightTrackerPage> {
                   });
                   Navigator.pop(
                     context,
-                  ); // Diyalogu kapattıktan sonra kontrol et
+                  ); 
                   _checkIfGoalReached();
                 } else {
                   Navigator.pop(context);

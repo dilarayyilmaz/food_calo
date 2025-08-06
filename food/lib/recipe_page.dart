@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-// Mesajları tutmak için basit bir model
 class ChatMessage {
   final String text;
   final bool isUser;
@@ -22,7 +21,7 @@ class _RecipePageState extends State<RecipePage> {
   bool _isLoading = false;
 
   // Kendi IP adresini buraya yazmalısın
-  final String _serverIp = 'http://192.168.1.5:5000/recipe_chat';
+  final String _serverIp = 'http://192.168.1.80:5000/recipe_chat';
 
   @override
   void initState() {

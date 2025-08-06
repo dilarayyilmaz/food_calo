@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "708853820858",
+    "project_id": "mammamiaapp-cf3bc",
+    "storage_bucket": "mammamiaapp-cf3bc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:708853820858:android:800dd234cc17441286c183",
+        "android_client_info": {
+          "package_name": "com.example.food"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBVanM44Js0ZTji4-B8hXnv7PyAmUYfi3Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

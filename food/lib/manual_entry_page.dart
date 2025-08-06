@@ -19,8 +19,7 @@ class _ManualEntryPageState extends State<ManualEntryPage> {
   final _fatController = TextEditingController();
 
   bool _isLoading = false;
-  // Kendi IP adresini buraya yazmalısın
-  final String _serverIp = 'http://192.168.1.5:5000/get_macros';
+  final String _serverIp = 'http://192.168.1.80:5000/get_macros';
 
   @override
   void dispose() {

@@ -21,7 +21,7 @@ class _CalPredictorState extends State<CalPredictor> {
   int _servings = 1;
 
   final String _serverIp =
-      'http://192.168.1.5:5000/predict'; 
+      'http://192.168.1.80:5000/predict'; 
 
   Future<void> _pickImage() async {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);

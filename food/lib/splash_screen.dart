@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dashboard_page.dart'; 
+import 'auth_gate.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -20,7 +21,8 @@ class _SplashScreenState extends State<SplashScreen> {
   void _navigateToDashboard() {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (BuildContext context) => const DashboardPage(),
+        builder: (BuildContext context) =>
+            const AuthGate(), 
       ),
     );
   }

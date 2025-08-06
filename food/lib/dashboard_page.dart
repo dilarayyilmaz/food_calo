@@ -2,16 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
-import 'package:shared_preferences/shared_preferences.dart'; 
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:rxdart/rxdart.dart';
 
 import 'cal_predictor.dart';
 import 'water_tracker_page.dart';
 import 'weight_tracker_page.dart';
 import 'recipe_page.dart';
-import 'settings_page.dart'; 
-import 'manual_entry_page.dart'; 
+import 'settings_page.dart';
+import 'manual_entry_page.dart';
 
+// Veri Modeli
 class FoodItem {
+  final String id;
   final String name;
   final int calories;
   final double carbs;
@@ -19,12 +24,25 @@ class FoodItem {
   final double fat;
 
   FoodItem({
+    required this.id,
     required this.name,
     required this.calories,
     required this.carbs,
     required this.protein,
     required this.fat,
   });
+
+  factory FoodItem.fromFirestore(DocumentSnapshot doc) {
+    Map data = doc.data() as Map<String, dynamic>;
+    return FoodItem(
+      id: doc.id,
+      name: data['name'] ?? '',
+      calories: (data['calories'] as num?)?.toInt() ?? 0,
+      carbs: (data['carbs'] as num?)?.toDouble() ?? 0.0,
+      protein: (data['protein'] as num?)?.toDouble() ?? 0.0,
+      fat: (data['fat'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
 }
 
 class DashboardPage extends StatefulWidget {
@@ -36,125 +54,33 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
-  int _calorieGoal = 2200;
-  double _carbsGoal = 250, _proteinGoal = 120, _fatGoal = 70;
   DateTime _selectedDate = DateTime.now();
-  final Map<String, List<FoodItem>> _meals = {
-    'Breakfast': [],
-    'Lunch': [],
-    'Dinner': [],
-    'Snacks': [],
-  };
 
-  @override
-  void initState() {
-    super.initState();
-    _loadGoals();
-  }
-
-  Future<void> _loadGoals() async {
-    final prefs = await SharedPreferences.getInstance();
+  void _onItemTapped(int index) {
     setState(() {
-      _calorieGoal = prefs.getInt('calorieGoal') ?? _calorieGoal;
-      _carbsGoal = (_calorieGoal * 0.50) / 4;
-      _proteinGoal = (_calorieGoal * 0.20) / 4;
-      _fatGoal = (_calorieGoal * 0.30) / 9;
+      _selectedIndex = index;
     });
   }
 
   Future<void> _navigateToSettings() async {
-    final result = await Navigator.push<bool>(
+    await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (context) => const SettingsPage()),
     );
-    if (result == true) {
-      _loadGoals();
-    }
-  }
-
-  void _onItemTapped(int index) {
-    if (index == 1) {
-      _addFoodToMeal('Snacks');
-    } else {
-      setState(() {
-        _selectedIndex = index;
-      });
-    }
-  }
-
-  Future<void> _addFoodToMeal(String mealTitle) async {
-    final result = await showModalBottomSheet<Map<String, dynamic>>(
-      context: context,
-      builder: (BuildContext context) {
-        return Container(
-          padding: const EdgeInsets.all(20),
-          child: Wrap(
-            children: <Widget>[
-              ListTile(
-                leading: const Icon(Icons.camera_alt, color: Color(0xFFF27A23)),
-                title: const Text('Fotoğrafla Ekle'),
-                onTap: () async {
-                  final photoResult =
-                      await Navigator.push<Map<String, dynamic>>(
-                        context,
-                        MaterialPageRoute(builder: (context) => CalPredictor()),
-                      );
-                  Navigator.pop(context, photoResult);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.edit, color: Color(0xFFF27A23)),
-                title: const Text('Manuel Ekle'),
-                onTap: () async {
-                  final manualResult =
-                      await Navigator.push<Map<String, dynamic>>(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ManualEntryPage(),
-                        ),
-                      );
-                  Navigator.pop(context, manualResult);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    if (result != null) {
-      final newFood = FoodItem(
-        name: result['food_name'] ?? 'Unknown',
-        calories: (result['calories'] as num?)?.toInt() ?? 0,
-        carbs: (result['carbs'] as num?)?.toDouble() ?? 0.0,
-        protein: (result['protein'] as num?)?.toDouble() ?? 0.0,
-        fat: (result['fat'] as num?)?.toDouble() ?? 0.0,
-      );
-
-      setState(() => _meals[mealTitle]?.add(newFood));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${newFood.name} öğününe eklendi!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    }
+    // Geri dönüldüğünde DashboardContent kendi initState'inde hedefleri yeniden yükleyebilir.
+    // Veya daha gelişmiş bir state management çözümü kullanılabilir.
   }
 
   @override
   Widget build(BuildContext context) {
     final List<Widget> pages = [
       DashboardContent(
-        calorieGoal: _calorieGoal,
-        meals: _meals,
-        carbsGoal: _carbsGoal,
-        proteinGoal: _proteinGoal,
-        fatGoal: _fatGoal,
+        key: ValueKey(
+          _selectedDate.toIso8601String(),
+        ), // Tarih değiştiğinde widget'ı yeniden oluştur
         selectedDate: _selectedDate,
         onDateChange: (newDate) => setState(() => _selectedDate = newDate),
-        onAddFood: _addFoodToMeal,
       ),
-      const SizedBox.shrink(),
       const WaterTrackerPage(),
       const WeightTrackerPage(),
       const RecipePage(),
@@ -179,16 +105,19 @@ class _DashboardPageState extends State<DashboardPage> {
             onPressed: _navigateToSettings,
             tooltip: 'Ayarlar',
           ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.grey),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+            },
+            tooltip: 'Çıkış Yap',
+          ),
         ],
       ),
       body: IndexedStack(index: _selectedIndex, children: pages),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Ana Sayfa'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.camera_alt),
-            label: 'Kalori',
-          ),
           BottomNavigationBarItem(icon: Icon(Icons.local_drink), label: 'Su'),
           BottomNavigationBarItem(
             icon: Icon(Icons.monitor_weight),
@@ -209,65 +138,221 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 }
 
-class DashboardContent extends StatelessWidget {
-  final int calorieGoal;
-  final Map<String, List<FoodItem>> meals;
-  final double carbsGoal, proteinGoal, fatGoal;
+class DashboardContent extends StatefulWidget {
   final DateTime selectedDate;
   final Function(DateTime) onDateChange;
-  final Function(String) onAddFood;
 
   const DashboardContent({
     super.key,
-    required this.calorieGoal,
-    required this.meals,
-    required this.carbsGoal,
-    required this.proteinGoal,
-    required this.fatGoal,
     required this.selectedDate,
     required this.onDateChange,
-    required this.onAddFood,
   });
 
-  int get caloriesEaten => meals.values
-      .expand((list) => list)
-      .fold(0, (sum, item) => sum + item.calories);
-  double get carbsEaten => meals.values
-      .expand((list) => list)
-      .fold(0.0, (sum, item) => sum + item.carbs);
-  double get proteinEaten => meals.values
-      .expand((list) => list)
-      .fold(0.0, (sum, item) => sum + item.protein);
-  double get fatEaten => meals.values
-      .expand((list) => list)
-      .fold(0.0, (sum, item) => sum + item.fat);
+  @override
+  State<DashboardContent> createState() => _DashboardContentState();
+}
+
+class _DashboardContentState extends State<DashboardContent> {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final User? _currentUser = FirebaseAuth.instance.currentUser;
+
+  int _calorieGoal = 2200;
+  double _carbsGoal = 250, _proteinGoal = 120, _fatGoal = 70;
 
   @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            _buildCalorieCircle(),
-            const SizedBox(height: 24),
-            _buildMacrosSection(),
-            const SizedBox(height: 24),
-            _buildDateSelector(),
-            const SizedBox(height: 16),
-            ...meals.entries
-                .map((entry) => _buildMealSection(entry.key, entry.value))
-                .toList(),
-          ],
-        ),
+  void initState() {
+    super.initState();
+    _loadGoals();
+  }
+
+  Future<void> _loadGoals() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _calorieGoal = prefs.getInt('calorieGoal') ?? 2200;
+        _carbsGoal = (_calorieGoal * 0.50) / 4;
+        _proteinGoal = (_calorieGoal * 0.20) / 4;
+        _fatGoal = (_calorieGoal * 0.30) / 9;
+      });
+    }
+  }
+
+  Future<void> _addFoodToMeal(String mealTitle) async {
+    if (!mounted) return;
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => _buildAddFoodMenu(),
+    );
+
+    if (result != null && _currentUser != null) {
+      final now = DateTime.now();
+      final dateToSave = DateTime(
+        widget.selectedDate.year,
+        widget.selectedDate.month,
+        widget.selectedDate.day,
+        now.hour,
+        now.minute,
+      );
+      await _firestore
+          .collection('users')
+          .doc(_currentUser!.uid)
+          .collection(mealTitle)
+          .add({
+            'name': result['food_name'],
+            'calories': result['calories'],
+            'carbs': result['carbs'],
+            'protein': result['protein'],
+            'fat': result['fat'],
+            'timestamp': Timestamp.fromDate(dateToSave),
+          });
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${result['food_name']} eklendi!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      
+      setState(() {});
+    }
+  }
+
+  Widget _buildAddFoodMenu() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Wrap(
+        children: <Widget>[
+          ListTile(
+            leading: const Icon(Icons.camera_alt, color: Color(0xFFF27A23)),
+            title: const Text('Fotoğrafla Ekle'),
+            onTap: () async {
+              final photoResult = await Navigator.push<Map<String, dynamic>>(
+                context,
+                MaterialPageRoute(builder: (context) => CalPredictor()),
+              );
+              Navigator.pop(context, photoResult);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.edit, color: Color(0xFFF27A23)),
+            title: const Text('Manuel Ekle'),
+            onTap: () async {
+              final manualResult = await Navigator.push<Map<String, dynamic>>(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ManualEntryPage(),
+                ),
+              );
+              Navigator.pop(context, manualResult);
+            },
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildCalorieCircle() {
-    double percent = calorieGoal > 0 ? caloriesEaten / calorieGoal : 0;
-    if (percent > 1) percent = 1;
+  Future<void> _deleteFoodItem({
+    required String mealTitle,
+    required String foodId,
+  }) async {
+    if (_currentUser == null) return;
+    await _firestore
+        .collection('users')
+        .doc(_currentUser!.uid)
+        .collection(mealTitle)
+        .doc(foodId)
+        .delete();
+  }
 
+  @override
+  Widget build(BuildContext context) {
+    if (_currentUser == null)
+      return const Center(child: Text("Giriş yapılmamış."));
+
+    final mealNames = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
+    final streams = mealNames.map((meal) {
+      return _firestore
+          .collection('users')
+          .doc(_currentUser!.uid)
+          .collection(meal)
+          .where(
+            'timestamp',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(
+              DateTime(
+                widget.selectedDate.year,
+                widget.selectedDate.month,
+                widget.selectedDate.day,
+              ),
+            ),
+          )
+          .where(
+            'timestamp',
+            isLessThan: Timestamp.fromDate(
+              DateTime(
+                widget.selectedDate.year,
+                widget.selectedDate.month,
+                widget.selectedDate.day + 1,
+              ),
+            ),
+          )
+          .snapshots()
+          .map(
+            (snapshot) => snapshot.docs
+                .map((doc) => FoodItem.fromFirestore(doc))
+                .toList(),
+          );
+    }).toList();
+
+    return StreamBuilder<List<List<FoodItem>>>(
+      stream: Rx.zip(streams, (List<List<FoodItem>> values) => values),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (!snapshot.hasData || snapshot.hasError) {
+          return const Center(child: Text("Veri yüklenemedi."));
+        }
+
+        final allMeals = snapshot.data!;
+        final allFoodItems = allMeals.expand((list) => list).toList();
+        final caloriesEaten = allFoodItems.fold(
+          0,
+          (sum, item) => sum + item.calories,
+        );
+        final carbsEaten = allFoodItems.fold(
+          0.0,
+          (sum, item) => sum + item.carbs,
+        );
+        final proteinEaten = allFoodItems.fold(
+          0.0,
+          (sum, item) => sum + item.protein,
+        );
+        final fatEaten = allFoodItems.fold(0.0, (sum, item) => sum + item.fat);
+
+        return SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                _buildCalorieCircle(caloriesEaten),
+                const SizedBox(height: 24),
+                _buildMacrosSection(carbsEaten, proteinEaten, fatEaten),
+                const SizedBox(height: 24),
+                _buildDateSelector(),
+                const SizedBox(height: 16),
+                for (int i = 0; i < mealNames.length; i++)
+                  _buildMealSection(mealNames[i], allMeals[i]),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCalorieCircle(int caloriesEaten) {
+    double percent = _calorieGoal > 0 ? caloriesEaten / _calorieGoal : 0;
+    if (percent > 1) percent = 1;
     return CircularPercentIndicator(
       radius: 100.0,
       lineWidth: 20.0,
@@ -286,7 +371,7 @@ class DashboardContent extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '${calorieGoal - caloriesEaten}',
+            '${_calorieGoal - caloriesEaten}',
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 48),
           ),
           const Text(
@@ -309,7 +394,11 @@ class DashboardContent extends StatelessWidget {
     );
   }
 
-  Widget _buildMacrosSection() {
+  Widget _buildMacrosSection(
+    double carbsEaten,
+    double proteinEaten,
+    double fatEaten,
+  ) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -318,9 +407,9 @@ class DashboardContent extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildMacroInfo('Carbs', carbsEaten, carbsGoal, Colors.orange),
-            _buildMacroInfo('Protein', proteinEaten, proteinGoal, Colors.pink),
-            _buildMacroInfo('Fat', fatEaten, fatGoal, Colors.blue),
+            _buildMacroInfo('Carbs', carbsEaten, _carbsGoal, Colors.orange),
+            _buildMacroInfo('Protein', proteinEaten, _proteinGoal, Colors.pink),
+            _buildMacroInfo('Fat', fatEaten, _fatGoal, Colors.blue),
           ],
         ),
       ),
@@ -355,17 +444,19 @@ class DashboardContent extends StatelessWidget {
       children: [
         IconButton(
           icon: const Icon(Icons.chevron_left),
-          onPressed: () =>
-              onDateChange(selectedDate.subtract(const Duration(days: 1))),
+          onPressed: () => widget.onDateChange(
+            widget.selectedDate.subtract(const Duration(days: 1)),
+          ),
         ),
         Text(
-          DateFormat('d MMM, EEEE').format(selectedDate),
+          DateFormat('d MMM, EEEE').format(widget.selectedDate),
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         IconButton(
           icon: const Icon(Icons.chevron_right),
-          onPressed: () =>
-              onDateChange(selectedDate.add(const Duration(days: 1))),
+          onPressed: () => widget.onDateChange(
+            widget.selectedDate.add(const Duration(days: 1)),
+          ),
         ),
       ],
     );
@@ -402,7 +493,7 @@ class DashboardContent extends StatelessWidget {
                     ),
                     IconButton(
                       icon: const Icon(Icons.add, color: Color(0xFFF27A23)),
-                      onPressed: () => onAddFood(title),
+                      onPressed: () => _addFoodToMeal(title),
                     ),
                   ],
                 ),
@@ -420,9 +511,25 @@ class DashboardContent extends StatelessWidget {
             else
               ...foods
                   .map(
-                    (food) => ListTile(
-                      title: Text(food.name),
-                      trailing: Text('${food.calories} kcal'),
+                    (food) => Dismissible(
+                      key: Key(food.id),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        color: Colors.red,
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: const Icon(Icons.delete, color: Colors.white),
+                      ),
+                      onDismissed: (direction) {
+                        _deleteFoodItem(mealTitle: title, foodId: food.id);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('${food.name} silindi.')),
+                        );
+                      },
+                      child: ListTile(
+                        title: Text(food.name),
+                        trailing: Text('${food.calories} kcal'),
+                      ),
                     ),
                   )
                   .toList(),
